@@ -8,7 +8,8 @@ const CoordinateLineCalculator = () => {
   const [y2, setY2] = useState('');
   const [digitalPoints, setDigitalPoints] = useState([]);
   const [processTable, setProcessTable] = useState([]);
-  const [svgDimensions] = useState({ width: 800, height: 400 });
+  const [isDDA, setIsDDA] = useState(false);
+  const [svgDimensions] = useState({ width: 400, height: 400 });
   const [viewBox, setViewBox] = useState('-10 -10 20 20');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -16,7 +17,7 @@ const CoordinateLineCalculator = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const svgRef = useRef(null);
- 
+
   const calculateDigitalPoints = () => {
     const x1Num = parseInt(x1);
     const y1Num = parseInt(y1);
@@ -62,8 +63,51 @@ const CoordinateLineCalculator = () => {
 
     setDigitalPoints(points);
     setProcessTable(process);
+    setIsDDA(false);
     updateSvgDimensions(points);
   };
+
+  const calculateDDAPoints = () => {
+    const x1Num = parseInt(x1);
+    const y1Num = parseInt(y1);
+    const x2Num = parseInt(x2);
+    const y2Num = parseInt(y2);
+
+    const dx = x2Num - x1Num;
+    const dy = y2Num - y1Num;
+    const steps = Math.abs(dx) > Math.abs(dy) ? Math.abs(dx) : Math.abs(dy);
+
+    const xIncrement = dx / steps;
+    const yIncrement = dy / steps;
+
+    let x = x1Num;
+    let y = y1Num;
+
+    const points = [];
+    const process = [];
+
+    for (let k = 0; k <= steps; k++) {
+      points.push({ x: Math.round(x), y: Math.round(y) });
+      process.push({
+        k,
+        x: x.toFixed(2),
+        y: y.toFixed(2),
+        roundX: Math.round(x),
+        roundY: Math.round(y)
+      });
+
+      x += xIncrement;
+      y += yIncrement;
+    }
+
+    setDigitalPoints(points);
+    setProcessTable(process);
+    setIsDDA(true);
+    updateSvgDimensions(points);
+  };
+
+
+
 
   const updateSvgDimensions = (points) => {
     const xValues = points.map(p => p.x);
@@ -132,6 +176,19 @@ const CoordinateLineCalculator = () => {
     return lines;
   };
 
+  const handleClear = () => {
+    setX1('');
+    setY1('');
+    setX2('');
+    setY2('');
+    setDigitalPoints([]);
+    setProcessTable([]);
+    setIsDDA(false);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+  
+
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Kalkulator Garis Koordinat</h1>
@@ -165,12 +222,26 @@ const CoordinateLineCalculator = () => {
           className="border p-2 rounded"
         />
       </div>
-      <button
-        onClick={calculateDigitalPoints}
-        className="bg-blue-500 text-white p-2 rounded w-full mb-4"
-      >
-        Algoritma Dasar
-      </button>
+      <div className="flex space-x-2 mb-4">
+  <button
+    onClick={calculateDigitalPoints}
+    className="bg-blue-500 text-white p-2 rounded flex-1"
+  >
+    Algoritma Dasar
+  </button>
+  <button
+    onClick={calculateDDAPoints}
+    className="bg-green-500 text-white p-2 rounded flex-1"
+  >
+    Algoritma DDA
+  </button>
+  <button
+    onClick={handleClear}
+    className="bg-red-500 text-white p-2 rounded flex-1"
+  >
+    Clear
+  </button>
+</div>
       
       {digitalPoints.length > 0 && (
         <div className="mt-4">
@@ -231,30 +302,53 @@ const CoordinateLineCalculator = () => {
       {processTable.length > 0 && (
         <div className="overflow-x-auto mt-4">
           <h2 className="text-xl font-semibold mb-2">Tabel Proses:</h2>
-          <table className="w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-300 p-2">x</th>
-                <th className="border border-gray-300 p-2">dx</th>
-                <th className="border border-gray-300 p-2">x</th>
-                <th className="border border-gray-300 p-2">y(b)</th>
-                <th className="border border-gray-300 p-2">m</th>
-                <th className="border border-gray-300 p-2">y</th>
-              </tr>
-            </thead>
-            <tbody>
-              {processTable.map((row, index) => (
-                <tr key={index}>
-                  <td className="border border-gray-300 p-2">{row.x}</td>
-                  <td className="border border-gray-300 p-2">{row.dx}</td>
-                  <td className="border border-gray-300 p-2">{row.xNext}</td>
-                  <td className="border border-gray-300 p-2">{row.yb}</td>
-                  <td className="border border-gray-300 p-2">{row.m}</td>
-                  <td className="border border-gray-300 p-2">{row.y}</td>
+          {isDDA ? (
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 p-2">k</th>
+                  <th className="border border-gray-300 p-2">x</th>
+                  <th className="border border-gray-300 p-2">y</th>
+                  <th className="border border-gray-300 p-2">round(x), round(y)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {processTable.map((row, index) => (
+                  <tr key={index}>
+                    <td className="border border-gray-300 p-2">{row.k}</td>
+                    <td className="border border-gray-300 p-2">{row.x}</td>
+                    <td className="border border-gray-300 p-2">{row.y}</td>
+                    <td className="border border-gray-300 p-2">({row.roundX}, {row.roundY})</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 p-2">x</th>
+                  <th className="border border-gray-300 p-2">dx</th>
+                  <th className="border border-gray-300 p-2">x</th>
+                  <th className="border border-gray-300 p-2">y(b)</th>
+                  <th className="border border-gray-300 p-2">m</th>
+                  <th className="border border-gray-300 p-2">y</th>
+                </tr>
+              </thead>
+              <tbody>
+                {processTable.map((row, index) => (
+                  <tr key={index}>
+                    <td className="border border-gray-300 p-2">{row.x}</td>
+                    <td className="border border-gray-300 p-2">{row.dx}</td>
+                    <td className="border border-gray-300 p-2">{row.xNext}</td>
+                    <td className="border border-gray-300 p-2">{row.yb}</td>
+                    <td className="border border-gray-300 p-2">{row.m}</td>
+                    <td className="border border-gray-300 p-2">{row.y}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>
