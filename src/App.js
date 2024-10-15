@@ -14,6 +14,7 @@ const CoordinateLineCalculator = () => {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [gridSize, setGridSize] = useState(10);
+  const [isBresenham, setIsBresenham] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const svgRef = useRef(null);
@@ -63,6 +64,7 @@ const CoordinateLineCalculator = () => {
 
     setDigitalPoints(points);
     setProcessTable(process);
+    setIsBresenham(false);
     setIsDDA(false);
     updateSvgDimensions(points);
   };
@@ -102,7 +104,56 @@ const CoordinateLineCalculator = () => {
 
     setDigitalPoints(points);
     setProcessTable(process);
+    setIsBresenham(false);
     setIsDDA(true);
+    updateSvgDimensions(points);
+  };
+
+  const calculateBresenhamPoints = () => {
+    const x1Num = parseInt(x1);
+    const y1Num = parseInt(y1);
+    const x2Num = parseInt(x2);
+    const y2Num = parseInt(y2);
+
+    const dx = Math.abs(x2Num - x1Num);
+    const dy = Math.abs(y2Num - y1Num);
+    const sx = x1Num < x2Num ? 1 : -1;
+    const sy = y1Num < y2Num ? 1 : -1;
+    let err = dx - dy;
+
+    const points = [];
+    const process = [];
+    let x = x1Num;
+    let y = y1Num;
+    let k = 0;
+
+    while (true) {
+      points.push({ x, y });
+      process.push({
+        k,
+        pk: err,
+        xk: x,
+        yk: y,
+      });
+
+      if (x === x2Num && y === y2Num) break;
+
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+      k++;
+    }
+
+    setDigitalPoints(points);
+    setProcessTable(process);
+    setIsDDA(false);
+    setIsBresenham(true);
     updateSvgDimensions(points);
   };
 
@@ -183,6 +234,7 @@ const CoordinateLineCalculator = () => {
     setY2('');
     setDigitalPoints([]);
     setProcessTable([]);
+    setIsBresenham(false);
     setIsDDA(false);
     setZoom(1);
     setPan({ x: 0, y: 0 });
@@ -223,25 +275,31 @@ const CoordinateLineCalculator = () => {
         />
       </div>
       <div className="flex space-x-2 mb-4">
-  <button
-    onClick={calculateDigitalPoints}
-    className="bg-blue-500 text-white p-2 rounded flex-1"
-  >
-    Algoritma Dasar
-  </button>
-  <button
-    onClick={calculateDDAPoints}
-    className="bg-green-500 text-white p-2 rounded flex-1"
-  >
-    Algoritma DDA
-  </button>
-  <button
-    onClick={handleClear}
-    className="bg-red-500 text-white p-2 rounded flex-1"
-  >
-    Clear
-  </button>
-</div>
+        <button
+          onClick={calculateDigitalPoints}
+          className="bg-blue-500 text-white p-2 rounded flex-1"
+        >
+          Algoritma Dasar
+        </button>
+        <button
+          onClick={calculateDDAPoints}
+          className="bg-green-500 text-white p-2 rounded flex-1"
+        >
+          Algoritma DDA
+        </button>
+        <button
+          onClick={calculateBresenhamPoints}
+          className="bg-purple-500 text-white p-2 rounded flex-1"
+        >
+          Algoritma Bresenham
+        </button>
+        <button
+          onClick={handleClear}
+          className="bg-red-500 text-white p-2 rounded flex-1"
+        >
+          Clear
+        </button>
+      </div>
       
       {digitalPoints.length > 0 && (
         <div className="mt-4">
@@ -299,7 +357,7 @@ const CoordinateLineCalculator = () => {
         </div>
       )}
       
-      {processTable.length > 0 && (
+     {processTable.length > 0 && (
         <div className="overflow-x-auto mt-4">
           <h2 className="text-xl font-semibold mb-2">Tabel Proses:</h2>
           {isDDA ? (
@@ -319,6 +377,25 @@ const CoordinateLineCalculator = () => {
                     <td className="border border-gray-300 p-2">{row.x}</td>
                     <td className="border border-gray-300 p-2">{row.y}</td>
                     <td className="border border-gray-300 p-2">({row.roundX}, {row.roundY})</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : isBresenham ? (
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 p-2">k</th>
+                  <th className="border border-gray-300 p-2">pk</th>
+                  <th className="border border-gray-300 p-2">(xk+1, yk+1)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {processTable.map((row, index) => (
+                  <tr key={index}>
+                    <td className="border border-gray-300 p-2">{row.k}</td>
+                    <td className="border border-gray-300 p-2">{row.pk}</td>
+                    <td className="border border-gray-300 p-2">({row.xk}, {row.yk})</td>
                   </tr>
                 ))}
               </tbody>
